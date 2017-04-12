@@ -17,11 +17,11 @@ from homeassistant.const import CONF_HOST, CONF_API_KEY
 from homeassistant.loader import get_component
 from homeassistant.components.discovery import SERVICE_IKEA_TRADFRI
 
-REQUIREMENTS = ['opentradfri==0.4']
-DOMAIN = 'ikea_tradfri'
-CONFIG_FILE = 'ikea_tradfri.conf'
-KEY_CONFIG = 'ikea_tradfri_configuring'
-KEY_GATEWAY = 'ikea_tradfri_gateway'
+REQUIREMENTS = ['pytradfri==0.4']
+DOMAIN = 'tradfri'
+CONFIG_FILE = 'tradfri.conf'
+KEY_CONFIG = 'tradfri_configuring'
+KEY_GATEWAY = 'tradfri_gateway'
 
 CONFIG_SCHEMA = vol.Schema({
     DOMAIN: vol.Schema({
@@ -63,9 +63,9 @@ def request_configuration(hass, config, host):
         hass.async_add_job(success)
 
     instance = configurator.request_config(
-        hass, "Ikea Tradfri", configuration_callback,
+        hass, "Ikea Trådfri", configuration_callback,
         description='Please enter the security code written at the bottom of '
-                    'your Ikea Tradfri Gateway.',
+                    'your Ikea Trådfri Gateway.',
         submit_caption="Confirm",
         fields=[{'id': 'key', 'name': 'Security Code', 'type': ''}]
     )
@@ -73,7 +73,7 @@ def request_configuration(hass, config, host):
 
 @asyncio.coroutine
 def async_setup(hass, config):
-    """Setup Ikea Tradfri."""
+    """Setup Tradfri."""
     conf = config.get(DOMAIN, {})
     host = conf.get(CONF_HOST)
     key = conf.get(CONF_API_KEY)
