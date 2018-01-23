@@ -91,7 +91,7 @@ def _check_ps4(host, credentials):
         _LOGGER.error("Error loading PS4 [%s] credentials : %s", host, e)
         return False
 
-    except None as e:
+    except Exception as e:
         _LOGGER.error("Connection to PS4 [%s] failed : %s", host, e)
         return False
 
@@ -391,7 +391,7 @@ class PS4(object):
                           self._host, e)
             return False
 
-        except None as e:
+        except Exception as e:
             _LOGGER.error("Connection to PS4 [%s] failed : %s",
                           self._host, e)
             return False
