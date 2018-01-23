@@ -91,10 +91,6 @@ def _check_ps4(host, credentials):
         _LOGGER.error("Error loading PS4 [%s] credentials : %s", host, e)
         return False
 
-    except Exception as e:
-        _LOGGER.error("Connection to PS4 [%s] failed : %s", host, e)
-        return False
-
     return True
 
 
@@ -258,8 +254,14 @@ class PS4Device(MediaPlayerDevice):
                             cover_art += '?w=512&h=512'
                             print("image, %s" % cover_art)
                             break
-        except Exception as e:
-            _LOGGER.error("could not retrieve cover art, %s" % e)
+        except requests.exceptions.HTTPError as e:
+            _LOGGER.error("PS cover art HTTP error, %s" % e)
+
+        except requests.exceptions.RequestException as e:
+            _LOGGER.error("PS cover art request failed, %s" % e)
+
+        except requests.exceptions.Timeout as e:
+            _LOGGER.error("PS cover art timeout, %s" % e)
 
         if cover_art is not None:
             self._gamesmap[self._media_content_id] = cover_art
@@ -388,11 +390,6 @@ class PS4(object):
 
         except (IOError, OSError) as e:
             _LOGGER.error("Error loading PS4 credentials [%s] : %s",
-                          self._host, e)
-            return False
-
-        except Exception as e:
-            _LOGGER.error("Connection to PS4 [%s] failed : %s",
                           self._host, e)
             return False
 
