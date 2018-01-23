@@ -385,7 +385,6 @@ class PS4(object):
         except (IOError, OSError) as error:
             _LOGGER.error("Error loading PS4 credentials [%s] : %s",
                           self._host, error)
-            return False
 
     def _load_games(self):
         _LOGGER.debug('_load_games: %s', self._games_filename)
@@ -414,7 +413,7 @@ class PS4(object):
         if data is None:
             return {}
 
-        """Save current game"""
+        # save current game running.
         if data.get('running-app-titleid'):
             if data.get('running-app-titleid') not in self.games.keys():
                 game = {data.get('running-app-titleid'):
@@ -422,16 +421,15 @@ class PS4(object):
                 self.games.update(game)
                 self._save_games()
 
-        # return data
         return data
 
     def wakeup(self):
         """Wakeup PS4."""
         return self._ps.wakeup()
 
-    def start(self, titleId):
-        """Start game using titleId."""
-        _LOGGER.warning('PS4 command not implemented : start %s', titleId)
+    def start(self, titleid):
+        """Start game using titleid."""
+        _LOGGER.warning('PS4 command not implemented : start %s', titleid)
         return None
         # return self._run('start ' + titleId)
 
