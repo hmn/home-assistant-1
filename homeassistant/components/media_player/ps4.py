@@ -260,9 +260,6 @@ class PS4Device(MediaPlayerDevice):
         except requests.exceptions.RequestException as e:
             _LOGGER.error("PS cover art request failed, %s" % e)
 
-        except requests.exceptions.Timeout as e:
-            _LOGGER.error("PS cover art timeout, %s" % e)
-
         if cover_art is not None:
             self._gamesmap[self._media_content_id] = cover_art
 
