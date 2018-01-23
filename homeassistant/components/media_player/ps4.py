@@ -81,14 +81,14 @@ def _check_ps4(host, credentials):
             info = playstation.get_status()
             _LOGGER.debug("Searched for PS4 [%s] on network and got : %s",
                           host, info)
-        except IOError as e:
-            _LOGGER.error("Error connecting to PS4 [%s] : %s", host, e)
+        except IOError as error:
+            _LOGGER.error("Error connecting to PS4 [%s] : %s", host, error)
             return False
         finally:
             playstation.close()
 
-    except (IOError, OSError) as e:
-        _LOGGER.error("Error loading PS4 [%s] credentials : %s", host, e)
+    except (IOError, OSError) as error:
+        _LOGGER.error("Error loading PS4 [%s] credentials : %s", host, error)
         return False
 
     return True
@@ -196,7 +196,7 @@ class PS4Device(MediaPlayerDevice):
     def update(self):
         """Retrieve the latest data."""
         data = self.ps4.get_status()
-        _LOGGER.debug("ps4 get_status, %s" % data)
+        _LOGGER.debug("ps4 get_status, %s", data)
 
         self._media_title = data.get('running-app-name')
         self._media_content_id = data.get('running-app-titleid')
@@ -252,16 +252,13 @@ class PS4Device(MediaPlayerDevice):
                         if 'thumbnail-url-base' in game:
                             cover_art = game['thumbnail-url-base']
                             cover_art += '?w=512&h=512'
-                            print("image, %s" % cover_art)
+                            self._gamesmap[self._media_content_id] = cover_art
                             break
-        except requests.exceptions.HTTPError as e:
-            _LOGGER.error("PS cover art HTTP error, %s" % e)
+        except requests.exceptions.HTTPError as error:
+            _LOGGER.error("PS cover art HTTP error, %s", error)
 
-        except requests.exceptions.RequestException as e:
-            _LOGGER.error("PS cover art request failed, %s" % e)
-
-        if cover_art is not None:
-            self._gamesmap[self._media_content_id] = cover_art
+        except requests.exceptions.RequestException as error:
+            _LOGGER.error("PS cover art request failed, %s", error)
 
     @property
     def entity_picture(self):
@@ -385,9 +382,9 @@ class PS4(object):
             self.ps = pyps4.Ps4(self._host, self._credentials)
             self.ps.open()
 
-        except (IOError, OSError) as e:
+        except (IOError, OSError) as error:
             _LOGGER.error("Error loading PS4 credentials [%s] : %s",
-                          self._host, e)
+                          self._host, error)
             return False
 
     def _load_games(self):
@@ -398,8 +395,8 @@ class PS4(object):
                 f.close()
         except FileNotFoundError:
             self._save_games()
-        except ValueError as e:
-            _LOGGER.error('Games json file wrong: %s', e)
+        except ValueError as error:
+            _LOGGER.error('Games json file wrong: %s', error)
 
     def _save_games(self):
         _LOGGER.debug('_save_games: %s', self._games_filename)
