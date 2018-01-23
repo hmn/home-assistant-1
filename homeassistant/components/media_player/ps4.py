@@ -242,9 +242,9 @@ class PS4Device(MediaPlayerDevice):
                     '(Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
                     '(KHTML, like Gecko) Chrome/63.0.3239.84 Safari/537.36'
             }
-            r = requests.get(url, headers=headers)
+            req = requests.get(url, headers=headers)
 
-            for item in r.json()['included']:
+            for item in req.json()['included']:
                 if 'attributes' in item:
                     game = item['attributes']
                     if 'game-content-type' in game and \
@@ -379,8 +379,8 @@ class PS4(object):
         self._load_games()
 
         try:
-            self.ps = pyps4.Ps4(self._host, self._credentials)
-            self.ps.open()
+            self._ps = pyps4.Ps4(self._host, self._credentials)
+            self._ps.open()
 
         except (IOError, OSError) as error:
             _LOGGER.error("Error loading PS4 credentials [%s] : %s",
@@ -390,9 +390,9 @@ class PS4(object):
     def _load_games(self):
         _LOGGER.debug('_load_games: %s', self._games_filename)
         try:
-            with open(self._games_filename, 'r') as f:
-                self.games = json.load(f)
-                f.close()
+            with open(self._games_filename, 'r') as file:
+                self.games = json.load(file)
+                file.close()
         except FileNotFoundError:
             self._save_games()
         except ValueError as error:
@@ -401,15 +401,15 @@ class PS4(object):
     def _save_games(self):
         _LOGGER.debug('_save_games: %s', self._games_filename)
         try:
-            with open(self._games_filename, 'w') as f:
-                json.dump(self.games, f)
-                f.close()
+            with open(self._games_filename, 'w') as file:
+                json.dump(self.games, file)
+                file.close()
         except FileNotFoundError:
             pass
 
     def get_status(self):
         """List current info."""
-        data = self.ps.get_status()
+        data = self._ps.get_status()
 
         if data is None:
             return {}
@@ -427,7 +427,7 @@ class PS4(object):
 
     def wakeup(self):
         """Wakeup PS4."""
-        return self.ps.wakeup()
+        return self._ps.wakeup()
 
     def start(self, titleId):
         """Start game using titleId."""
