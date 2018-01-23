@@ -425,16 +425,14 @@ class PS4(object):
 
     def wakeup(self):
         """Wakeup PS4."""
-        return self._ps.wakeup()
+        self._ps.wakeup()
 
     def start(self, titleid):
         """Start game using titleid."""
         _LOGGER.warning('PS4 command not implemented : start %s', titleid)
-        return None
-        # return self._run('start ' + titleId)
+        self._ps.start(titleid)
 
     def remote(self, key):
         """Send remote key press."""
         _LOGGER.warning('PS4 command not implemented : remote %s', key)
-        return None
-        # return self._run('remote ' + key)
+        self._ps.remote(key)
