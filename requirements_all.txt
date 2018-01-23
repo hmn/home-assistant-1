@@ -35,7 +35,7 @@ PyMVGLive==1.1.4
 PyMata==2.14
 
 # homeassistant.components.xiaomi_aqara
-PyXiaomiGateway==0.7.1
+PyXiaomiGateway==0.8.0
 
 # homeassistant.components.rpi_gpio
 # RPi.GPIO==0.6.1
@@ -142,6 +142,9 @@ blockchain==1.4.0
 
 # homeassistant.components.light.decora
 # bluepy==1.1.4
+
+# homeassistant.components.sensor.bme680
+# bme680==1.0.4
 
 # homeassistant.components.notify.aws_lambda
 # homeassistant.components.notify.aws_sns
@@ -1089,6 +1092,7 @@ sleepyq==0.6
 # homeassistant.components.raspihats
 # homeassistant.components.sensor.bh1750
 # homeassistant.components.sensor.bme280
+# homeassistant.components.sensor.bme680
 # homeassistant.components.sensor.envirophat
 # homeassistant.components.sensor.htu21d
 # smbus-cffi==0.5.1
