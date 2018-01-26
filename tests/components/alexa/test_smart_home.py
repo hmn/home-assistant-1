@@ -1,9 +1,12 @@
 """Test for smart home alexa support."""
 import asyncio
+import json
 from uuid import uuid4
 
 import pytest
 
+from homeassistant.setup import async_setup_component
+from homeassistant.components import alexa
 from homeassistant.components.alexa import smart_home
 from homeassistant.helpers import entityfilter
 
@@ -119,6 +122,9 @@ def test_discovery_request(hass):
 
     hass.states.async_set(
         'script.test', 'off', {'friendly_name': "Test script"})
+    hass.states.async_set(
+        'script.test_2', 'off', {'friendly_name': "Test script 2",
+                                 'can_cancel': True})
 
     hass.states.async_set(
         'input_boolean.test', 'off', {'friendly_name': "Test input boolean"})
@@ -166,7 +172,7 @@ def test_discovery_request(hass):
     assert 'event' in msg
     msg = msg['event']
 
-    assert len(msg['payload']['endpoints']) == 15
+    assert len(msg['payload']['endpoints']) == 16
     assert msg['header']['name'] == 'Discover.Response'
     assert msg['header']['namespace'] == 'Alexa.Discovery'
 
@@ -218,11 +224,18 @@ def test_discovery_request(hass):
             continue
 
         if appliance['endpointId'] == 'script#test':
-            assert appliance['displayCategories'][0] == "OTHER"
+            assert appliance['displayCategories'][0] == "ACTIVITY_TRIGGER"
             assert appliance['friendlyName'] == "Test script"
             assert len(appliance['capabilities']) == 1
-            assert appliance['capabilities'][-1]['interface'] == \
-                'Alexa.PowerController'
+            capability = appliance['capabilities'][-1]
+            assert capability['interface'] == 'Alexa.SceneController'
+            assert not capability['supportsDeactivation']
+            continue
+
+        if appliance['endpointId'] == 'script#test_2':
+            assert len(appliance['capabilities']) == 1
+            capability = appliance['capabilities'][-1]
+            assert capability['supportsDeactivation']
             continue
 
         if appliance['endpointId'] == 'input_boolean#test':
@@ -234,7 +247,7 @@ def test_discovery_request(hass):
             continue
 
         if appliance['endpointId'] == 'scene#test':
-            assert appliance['displayCategories'][0] == "ACTIVITY_TRIGGER"
+            assert appliance['displayCategories'][0] == "SCENE_TRIGGER"
             assert appliance['friendlyName'] == "Test scene"
             assert len(appliance['capabilities']) == 1
             assert appliance['capabilities'][-1]['interface'] == \
@@ -300,11 +313,12 @@ def test_discovery_request(hass):
             continue
 
         if appliance['endpointId'] == 'group#test':
-            assert appliance['displayCategories'][0] == "OTHER"
+            assert appliance['displayCategories'][0] == "SCENE_TRIGGER"
             assert appliance['friendlyName'] == "Test group"
             assert len(appliance['capabilities']) == 1
-            assert appliance['capabilities'][-1]['interface'] == \
-                'Alexa.PowerController'
+            capability = appliance['capabilities'][-1]
+            assert capability['interface'] == 'Alexa.SceneController'
+            assert capability['supportsDeactivation'] is True
             continue
 
         if appliance['endpointId'] == 'cover#test':
@@ -422,8 +436,8 @@ def test_api_function_not_implemented(hass):
 
 
 @asyncio.coroutine
-@pytest.mark.parametrize("domain", ['alert', 'automation', 'cover', 'group',
-                                    'input_boolean', 'light', 'script',
+@pytest.mark.parametrize("domain", ['alert', 'automation', 'cover',
+                                    'input_boolean', 'light',
                                     'switch'])
 def test_api_turn_on(hass, domain):
     """Test api turn on process."""
@@ -437,9 +451,6 @@ def test_api_turn_on(hass, domain):
         })
 
     call_domain = domain
-
-    if domain == 'group':
-        call_domain = 'homeassistant'
 
     if domain == 'cover':
         call = async_mock_service(hass, call_domain, 'open_cover')
@@ -716,7 +727,7 @@ def test_api_increase_color_temp(hass, result, initial):
 
 
 @asyncio.coroutine
-@pytest.mark.parametrize("domain", ['scene'])
+@pytest.mark.parametrize("domain", ['scene', 'group', 'script'])
 def test_api_activate(hass, domain):
     """Test api activate process."""
     request = get_new_request(
@@ -728,7 +739,12 @@ def test_api_activate(hass, domain):
             'friendly_name': "Test {}".format(domain)
         })
 
-    call = async_mock_service(hass, domain, 'turn_on')
+    if domain == 'group':
+        call_domain = 'homeassistant'
+    else:
+        call_domain = domain
+
+    call = async_mock_service(hass, call_domain, 'turn_on')
 
     msg = yield from smart_home.async_handle_message(
         hass, DEFAULT_CONFIG, request)
@@ -740,6 +756,40 @@ def test_api_activate(hass, domain):
     assert len(call) == 1
     assert call[0].data['entity_id'] == '{}.test'.format(domain)
     assert msg['header']['name'] == 'ActivationStarted'
+    assert msg['payload']['cause']['type'] == 'VOICE_INTERACTION'
+    assert 'timestamp' in msg['payload']
+
+
+@asyncio.coroutine
+@pytest.mark.parametrize("domain", ['group', 'script'])
+def test_api_deactivate(hass, domain):
+    """Test api deactivate process."""
+    request = get_new_request(
+        'Alexa.SceneController', 'Deactivate', '{}#test'.format(domain))
+
+    # setup test devices
+    hass.states.async_set(
+        '{}.test'.format(domain), 'off', {
+            'friendly_name': "Test {}".format(domain)
+        })
+
+    if domain == 'group':
+        call_domain = 'homeassistant'
+    else:
+        call_domain = domain
+
+    call = async_mock_service(hass, call_domain, 'turn_off')
+
+    msg = yield from smart_home.async_handle_message(
+        hass, DEFAULT_CONFIG, request)
+    yield from hass.async_block_till_done()
+
+    assert 'event' in msg
+    msg = msg['event']
+
+    assert len(call) == 1
+    assert call[0].data['entity_id'] == '{}.test'.format(domain)
+    assert msg['header']['name'] == 'DeactivationStarted'
     assert msg['payload']['cause']['type'] == 'VOICE_INTERACTION'
     assert 'timestamp' in msg['payload']
 
@@ -1155,3 +1205,62 @@ def test_entity_config(hass):
     assert len(appliance['capabilities']) == 1
     assert appliance['capabilities'][-1]['interface'] == \
         'Alexa.PowerController'
+
+
+@asyncio.coroutine
+def test_unsupported_domain(hass):
+    """Discovery ignores entities of unknown domains."""
+    request = get_new_request('Alexa.Discovery', 'Discover')
+
+    hass.states.async_set(
+        'woz.boop', 'on', {'friendly_name': "Boop Woz"})
+
+    msg = yield from smart_home.async_handle_message(
+        hass, DEFAULT_CONFIG, request)
+
+    assert 'event' in msg
+    msg = msg['event']
+
+    assert len(msg['payload']['endpoints']) == 0
+
+
+@asyncio.coroutine
+def do_http_discovery(config, hass, test_client):
+    """Submit a request to the Smart Home HTTP API."""
+    yield from async_setup_component(hass, alexa.DOMAIN, config)
+    http_client = yield from test_client(hass.http.app)
+
+    request = get_new_request('Alexa.Discovery', 'Discover')
+    response = yield from http_client.post(
+        smart_home.SMART_HOME_HTTP_ENDPOINT,
+        data=json.dumps(request),
+        headers={'content-type': 'application/json'})
+    return response
+
+
+@asyncio.coroutine
+def test_http_api(hass, test_client):
+    """With `smart_home:` HTTP API is exposed."""
+    config = {
+        'alexa': {
+            'smart_home': None
+        }
+    }
+
+    response = yield from do_http_discovery(config, hass, test_client)
+    response_data = yield from response.json()
+
+    # Here we're testing just the HTTP view glue -- details of discovery are
+    # covered in other tests.
+    assert response_data['event']['header']['name'] == 'Discover.Response'
+
+
+@asyncio.coroutine
+def test_http_api_disabled(hass, test_client):
+    """Without `smart_home:`, the HTTP API is disabled."""
+    config = {
+        'alexa': {}
+    }
+    response = yield from do_http_discovery(config, hass, test_client)
+
+    assert response.status == 404

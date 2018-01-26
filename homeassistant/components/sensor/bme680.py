@@ -2,11 +2,15 @@
 Support for BME680 Sensor over SMBus.
 
 Temperature, humidity, pressure and volitile gas support.
-Air Qaulity calucaltion based on humidity and volatile gas.
+Air Quality calculation based on humidity and volatile gas.
 
+For more details about this platform, please refer to the documentation at
+https://home-assistant.io/components/sensor.bme680/
 """
 import asyncio
 import logging
+
+from time import time, sleep
 
 import voluptuous as vol
 
@@ -66,7 +70,8 @@ FILTER_VALUES = set([0, 1, 3, 7, 15, 31, 63, 127])
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
-    vol.Optional(CONF_I2C_ADDRESS, default=DEFAULT_I2C_ADDRESS): cv.string,
+    vol.Optional(CONF_I2C_ADDRESS, default=DEFAULT_I2C_ADDRESS):
+        cv.positive_int,
     vol.Optional(CONF_MONITORED_CONDITIONS, default=DEFAULT_MONITORED):
         vol.All(cv.ensure_list, [vol.In(SENSOR_TYPES)]),
     vol.Optional(CONF_I2C_BUS, default=DEFAULT_I2C_BUS): cv.positive_int,
@@ -100,18 +105,15 @@ def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
 
     sensor_handler = yield from hass.async_add_job(_setup_bme680, config)
     if sensor_handler is None:
-        return False
+        return
 
     dev = []
-    try:
-        for variable in config[CONF_MONITORED_CONDITIONS]:
-            dev.append(BME680Sensor(
-                sensor_handler, variable, SENSOR_TYPES[variable][1], name))
-    except KeyError:
-        pass
+    for variable in config[CONF_MONITORED_CONDITIONS]:
+        dev.append(BME680Sensor(
+            sensor_handler, variable, SENSOR_TYPES[variable][1], name))
 
     async_add_devices(dev)
-    return True
+    return
 
 
 # pylint: disable=import-error
@@ -119,7 +121,6 @@ def _setup_bme680(config):
     """Set up and configure the BME680 sensor."""
     from smbus import SMBus
     import bme680
-    from time import sleep
 
     sensor_handler = None
     sensor = None
@@ -174,7 +175,7 @@ def _setup_bme680(config):
         else:
             sensor.set_gas_status(bme680.DISABLE_GAS_MEAS)
     except (RuntimeError, IOError):
-        _LOGGER.error("BME680 sensor not detected at %s", i2c_address)
+        _LOGGER.error("BME680 sensor not detected at 0x%02x", i2c_address)
         return None
 
     sensor_handler = BME680Handler(
@@ -232,49 +233,48 @@ class BME680Handler:
 
     def _run_gas_sensor(self, burn_in_time):
         """Calibrate the Air Quality Gas Baseline."""
-        if not self._gas_sensor_running:
-            self._gas_sensor_running = True
-            import time
-
-            # Pause to allow inital data read for device validation.
-            time.sleep(1)
-
-            start_time = time.time()
-            curr_time = time.time()
-            burn_in_data = []
-
-            _LOGGER.info(("Beginning %d second gas sensor burn in for "
-                          "Air Quality"), burn_in_time)
-            while curr_time - start_time < burn_in_time:
-                curr_time = time.time()
-                if (
-                        self._sensor.get_sensor_data() and
-                        self._sensor.data.heat_stable
-                ):
-                    gas_resistance = self._sensor.data.gas_resistance
-                    burn_in_data.append(gas_resistance)
-                    self.sensor_data.gas_resistance = gas_resistance
-                    _LOGGER.debug(("AQ Gas Resistance Baseline reading %2f "
-                                   "Ohms"), gas_resistance)
-                    time.sleep(1)
-
-            _LOGGER.debug(("AQ Gas Resistance Burn In Data (Size: %d): "
-                           "\n\t%s"), len(burn_in_data), burn_in_data)
-            self._gas_baseline = sum(burn_in_data[-50:]) / 50.0
-            _LOGGER.info("Completed gas sensor burn in for Air Quality")
-            _LOGGER.info("AQ Gas Resistance Baseline: %f", self._gas_baseline)
-            while True:
-                if (
-                        self._sensor.get_sensor_data() and
-                        self._sensor.data.heat_stable
-                ):
-                    self.sensor_data.gas_resistance = (
-                        self._sensor.data.gas_resistance
-                    )
-                    self.sensor_data.air_quality = self._calculate_aq_score()
-                    time.sleep(1)
-        else:
+        if self._gas_sensor_running:
             return
+
+        self._gas_sensor_running = True
+
+        # Pause to allow inital data read for device validation.
+        sleep(1)
+
+        start_time = time()
+        curr_time = time()
+        burn_in_data = []
+
+        _LOGGER.info("Beginning %d second gas sensor burn in for Air Quality",
+                     burn_in_time)
+        while curr_time - start_time < burn_in_time:
+            curr_time = time()
+            if (
+                    self._sensor.get_sensor_data() and
+                    self._sensor.data.heat_stable
+            ):
+                gas_resistance = self._sensor.data.gas_resistance
+                burn_in_data.append(gas_resistance)
+                self.sensor_data.gas_resistance = gas_resistance
+                _LOGGER.debug("AQ Gas Resistance Baseline reading %2f Ohms",
+                              gas_resistance)
+                sleep(1)
+
+        _LOGGER.debug("AQ Gas Resistance Burn In Data (Size: %d): \n\t%s",
+                      len(burn_in_data), burn_in_data)
+        self._gas_baseline = sum(burn_in_data[-50:]) / 50.0
+        _LOGGER.info("Completed gas sensor burn in for Air Quality")
+        _LOGGER.info("AQ Gas Resistance Baseline: %f", self._gas_baseline)
+        while True:
+            if (
+                    self._sensor.get_sensor_data() and
+                    self._sensor.data.heat_stable
+            ):
+                self.sensor_data.gas_resistance = (
+                    self._sensor.data.gas_resistance
+                )
+                self.sensor_data.air_quality = self._calculate_aq_score()
+                sleep(1)
 
     def update(self, first_read=False):
         """Read sensor data."""

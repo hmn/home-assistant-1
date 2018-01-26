@@ -109,6 +109,9 @@ omit =
     homeassistant/components/ios.py
     homeassistant/components/*/ios.py
 
+    homeassistant/components/iota.py
+    homeassistant/components/*/iota.py
+
     homeassistant/components/isy994.py
     homeassistant/components/*/isy994.py
 
@@ -313,6 +316,7 @@ omit =
     homeassistant/components/camera/ring.py
     homeassistant/components/camera/rpi_camera.py
     homeassistant/components/camera/synology.py
+    homeassistant/components/camera/xeoma.py
     homeassistant/components/camera/yi.py
     homeassistant/components/climate/econet.py
     homeassistant/components/climate/ephember.py
@@ -327,6 +331,7 @@ omit =
     homeassistant/components/climate/radiotherm.py
     homeassistant/components/climate/sensibo.py
     homeassistant/components/climate/touchline.py
+    homeassistant/components/climate/venstar.py
     homeassistant/components/cover/garadget.py
     homeassistant/components/cover/homematic.py
     homeassistant/components/cover/knx.py
