@@ -1,30 +1,19 @@
 """Playstation 4 media_player using ps4-waker."""
 import json
-# import re
 import logging
+import socket
 from datetime import timedelta
 
 import voluptuous as vol
 
 import homeassistant.util as util
 from homeassistant.components.media_player import (
-    PLATFORM_SCHEMA,
-    MEDIA_TYPE_CHANNEL,
-    SUPPORT_TURN_ON,
-    SUPPORT_TURN_OFF,
-    SUPPORT_STOP,
-    SUPPORT_SELECT_SOURCE,
-    ENTITY_IMAGE_URL,
-    MediaPlayerDevice
+    ENTITY_IMAGE_URL, MEDIA_TYPE_CHANNEL, MediaPlayerDevice, PLATFORM_SCHEMA,
+    SUPPORT_SELECT_SOURCE, SUPPORT_STOP, SUPPORT_TURN_OFF, SUPPORT_TURN_ON,
 )
 from homeassistant.const import (
-    STATE_IDLE,
+    CONF_FILENAME, CONF_HOST, CONF_NAME, STATE_IDLE, STATE_OFF, STATE_PLAYING,
     STATE_UNKNOWN,
-    STATE_OFF,
-    STATE_PLAYING,
-    CONF_NAME,
-    CONF_HOST,
-    CONF_FILENAME
 )
 from homeassistant.helpers import config_validation as cv
 from homeassistant.util.json import load_json, save_json
@@ -32,6 +21,7 @@ from homeassistant.util.json import load_json, save_json
 REQUIREMENTS = [
     'https://github.com/hthiery/python-ps4/archive/master.zip'
     '#pyps4==dev']
+# REQUIREMENTS = ['pyps4==0.1.2']
 
 _CONFIGURING = {}
 _LOGGER = logging.getLogger(__name__)
@@ -45,11 +35,11 @@ CONF_CREDENTIALS_FILENAME = "credentials_filename"
 CONF_GAMES_FILENAME = 'games_filename'
 CONF_LOCAL_STORE = "local_store"
 
-CREDENTIALS_FILE = None
-PS4_GAMES_FILE = 'ps4-games.json'
+CREDENTIALS_FILE = ''
+PS4_GAMES_FILE = '.ps4-games.json'
 MEDIA_IMAGE_DEFAULT = None
 LOCAL_STORE = 'games'
-CONFIG_FILE = 'ps4.conf'
+CONFIG_FILE = '.ps4.conf'
 
 MIN_TIME_BETWEEN_SCANS = timedelta(seconds=10)
 MIN_TIME_BETWEEN_FORCED_SCANS = timedelta(seconds=1)
@@ -85,7 +75,7 @@ def _check_ps4(host, credentials):
             _LOGGER.error("Error connecting to PS4 [%s] : %s", host, error)
             return False
         finally:
-            playstation.close()
+            pass
 
     except (IOError, OSError) as error:
         _LOGGER.error("Error loading PS4 [%s] credentials : %s", host, error)
@@ -96,11 +86,16 @@ def _check_ps4(host, credentials):
 
 def setup_ps4(host, name, hass, config, add_devices, credentials):
     """Set up PS4."""
+    import pyps4
     games_filename = hass.config.path(config.get(CONF_GAMES_FILENAME))
     local_store = config.get(CONF_LOCAL_STORE)
 
-    ps4 = PS4(host, credentials, games_filename)
-    add_devices([PS4Device(name, ps4, local_store)], True)
+    try:
+        ps4 = pyps4.Ps4(host, credentials)
+    except (IOError, OSError) as error:
+        _LOGGER.error("Error loading PS4 credentials [%s] : %s", host, error)
+
+    add_devices([PS4Device(name, ps4, local_store, games_filename)], True)
 
 
 def request_configuration(host, name, hass, config, add_devices, credentials):
@@ -112,7 +107,6 @@ def request_configuration(host, name, hass, config, add_devices, credentials):
             _CONFIGURING[host],
             'Failed to register host, please try again [%s].',
             host)
-
         return
 
     def ps4_configuration_callback(data):
@@ -156,7 +150,7 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     else:
         host = config.get(CONF_HOST)
         name = config.get(CONF_NAME, DEFAULT_NAME)
-        if config.get(CONF_CREDENTIALS_FILENAME) is not None:
+        if config.get(CONF_CREDENTIALS_FILENAME) != '':
             credentials = hass.config.path(
                 config.get(CONF_CREDENTIALS_FILENAME))
         else:
@@ -167,10 +161,20 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
         if conf.get(host, {}).get('credentials'):
             credentials = conf[host]['credentials']
 
-    if not _check_ps4(host, credentials):
+    if host is None:
         request_configuration(host, name, hass, config,
                               add_devices, credentials)
         return
+
+    if credentials is None:
+        request_configuration(host, name, hass, config,
+                              add_devices, credentials)
+        return
+
+    # if not _check_ps4(host, credentials):
+    #     request_configuration(host, name, hass, config,
+    #                           add_devices, credentials)
+    #     return
 
     setup_ps4(host, name, hass,
               config, add_devices, credentials)
@@ -179,38 +183,55 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
 class PS4Device(MediaPlayerDevice):
     """Representation of a PS4."""
 
-    def __init__(self, name, ps4, local_store):
+    def __init__(self, name, ps4, local_store, games_filename):
         """Initialize the ps4 device."""
         self.ps4 = ps4
         self._name = name
         self._state = STATE_UNKNOWN
+        self._gamesmap = {}
+        self._local_store = local_store
+        self._games_filename = games_filename
         self._media_content_id = None
         self._media_title = None
         self._current_source = None
         self._current_source_id = None
-        self._gamesmap = {}
-        self._local_store = local_store
-        self.update()
+        self._games = {}
+        self._load_games()
 
     @util.Throttle(MIN_TIME_BETWEEN_SCANS, MIN_TIME_BETWEEN_FORCED_SCANS)
     def update(self):
         """Retrieve the latest data."""
-        data = self.ps4.get_status()
-        _LOGGER.debug("ps4 get_status, %s", data)
+        try:
+            data = self.ps4.get_status()
+            _LOGGER.debug("ps4 get_status, %s", data)
 
-        self._media_title = data.get('running-app-name')
-        self._media_content_id = data.get('running-app-titleid')
-        self._current_source = data.get('running-app-name')
-        self._current_source_id = data.get('running-app-titleid')
+            self._media_title = data.get('running-app-name')
+            self._media_content_id = data.get('running-app-titleid')
+            self._current_source = data.get('running-app-name')
+            self._current_source_id = data.get('running-app-titleid')
 
-        if data.get('status') == 'Ok':
-            if self._media_content_id is not None:
-                self._state = STATE_PLAYING
-                # Check if cover art is in the gamesmap
-                self.check_gamesmap()
+            # save current game running.
+            if data.get('running-app-titleid'):
+                if data.get('running-app-titleid') not in self._games.keys():
+                    game = {data.get('running-app-titleid'):
+                            data.get('running-app-name')}
+                    self._games.update(game)
+                    self._save_games()
+
+            if data.get('status') == 'Ok':
+                if self._media_content_id is not None:
+                    self._state = STATE_PLAYING
+                    # Check if cover art is in the gamesmap
+                    self.check_gamesmap()
+                else:
+                    self._state = STATE_IDLE
             else:
-                self._state = STATE_IDLE
-        else:
+                self._state = STATE_OFF
+                self._media_title = None
+                self._media_content_id = None
+                self._current_source = None
+                self._current_source_id = None
+        except socket.timeout as ex:
             self._state = STATE_OFF
             self._media_title = None
             self._media_content_id = None
@@ -243,27 +264,27 @@ class PS4Device(MediaPlayerDevice):
                     '(KHTML, like Gecko) Chrome/63.0.3239.84 Safari/537.36'
             }
             req = requests.get(url, headers=headers)
-
-            for item in req.json()['included']:
-                if 'attributes' in item:
-                    game = item['attributes']
-                    if 'game-content-type' in game and \
-                       ('App' or 'Game') in game['game-content-type']:
-                        if 'thumbnail-url-base' in game:
-                            cover_art = game['thumbnail-url-base']
-                            cover_art += '?w=512&h=512'
-                            self._gamesmap[self._media_content_id] = cover_art
-                            break
         except requests.exceptions.HTTPError as error:
             _LOGGER.error("PS cover art HTTP error, %s", error)
 
         except requests.exceptions.RequestException as error:
             _LOGGER.error("PS cover art request failed, %s", error)
 
+        for item in req.json()['included']:
+            if 'attributes' in item:
+                game = item['attributes']
+                if 'game-content-type' in game and \
+                   game['game-content-type'] in ['App', 'Game', 'Full Game']:
+                    if 'thumbnail-url-base' in game:
+                        cover_art = game['thumbnail-url-base']
+                        cover_art += '?w=512&h=512'
+                        self._gamesmap[self._media_content_id] = cover_art
+                        break
+
     @property
     def entity_picture(self):
         """Return picture."""
-        if self.state == STATE_OFF:
+        if self._state == STATE_OFF:
             return None
 
         image_hash = self.media_image_hash
@@ -308,6 +329,7 @@ class PS4Device(MediaPlayerDevice):
         """Image url of current playing media."""
         if self._media_content_id is None:
             return MEDIA_IMAGE_DEFAULT
+
         try:
             return self._gamesmap[self._media_content_id]
         except KeyError:
@@ -331,67 +353,39 @@ class PS4Device(MediaPlayerDevice):
     @property
     def source_list(self):
         """List of available input sources."""
-        return sorted(self.ps4.games.values())
+        return sorted(self._games.values())
 
     def turn_off(self):
         """Turn off media player."""
-        # self.ps4.ps.standby()
-        _LOGGER.error('PS4 standby not implemented')
+        self.ps4.standby()
 
     def turn_on(self):
         """Turn on the media player."""
         self.ps4.wakeup()
-        self.update()
 
     def media_pause(self):
         """Send keypress ps to return to menu."""
         self.ps4.remote('ps')
-        self.update()
 
     def media_stop(self):
         """Send keypress ps to return to menu."""
         self.ps4.remote('ps')
-        self.update()
 
     def select_source(self, source):
         """Select input source."""
-        for titleid, game in self.ps4.games.items():
+        for title_id, game in self._games.items():
             if source == game:
-                self.ps4.start(titleid)
-                self._current_source_id = titleid
+                self.ps4.start_title(title_id)
+                self._current_source_id = title_id
                 self._current_source = game
-                self._media_content_id = titleid
+                self._media_content_id = title_id
                 self._media_title = game
-                self.update()
-
-
-class PS4(object):
-    """The class for handling the data retrieval."""
-
-    def __init__(self, host, credentials, games_filename):
-        """Initialize the data object."""
-        import pyps4
-
-        self._host = host
-        self._credentials = credentials
-        self._games_filename = games_filename
-        self.games = {}
-        self._load_games()
-
-        try:
-            self._ps = pyps4.Ps4(self._host, self._credentials)
-            self._ps.open()
-
-        except (IOError, OSError) as error:
-            _LOGGER.error("Error loading PS4 credentials [%s] : %s",
-                          self._host, error)
 
     def _load_games(self):
         _LOGGER.debug('_load_games: %s', self._games_filename)
         try:
             with open(self._games_filename, 'r') as file:
-                self.games = json.load(file)
-                file.close()
+                self._games = json.load(file)
         except FileNotFoundError:
             self._save_games()
         except ValueError as error:
@@ -401,40 +395,6 @@ class PS4(object):
         _LOGGER.debug('_save_games: %s', self._games_filename)
         try:
             with open(self._games_filename, 'w') as file:
-                json.dump(self.games, file)
-                file.close()
+                json.dump(self._games, file)
         except FileNotFoundError:
             pass
-
-    def get_status(self):
-        """List current info."""
-        data = self._ps.get_status()
-
-        if data is None:
-            return {}
-
-        # save current game running.
-        if data.get('running-app-titleid'):
-            if data.get('running-app-titleid') not in self.games.keys():
-                game = {data.get('running-app-titleid'):
-                        data.get('running-app-name')}
-                self.games.update(game)
-                self._save_games()
-
-        return data
-
-    def wakeup(self):
-        """Wakeup PS4."""
-        self._ps.wakeup()
-
-    def start(self, titleid):
-        """Start game using titleid."""
-        _LOGGER.warning('PS4 command not implemented : start %s', titleid)
-        self._ps.wakeup()
-        # self._ps.start(titleid)
-
-    def remote(self, key):
-        """Send remote key press."""
-        _LOGGER.warning('PS4 command not implemented : remote %s', key)
-        self._ps.wakeup()
-        # self._ps.remote(key)
