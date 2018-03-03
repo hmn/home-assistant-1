@@ -12,7 +12,8 @@ import os
 
 import voluptuous as vol
 
-from homeassistant.components import group
+from homeassistant.components.group import \
+    ENTITY_ID_FORMAT as GROUP_ENTITY_ID_FORMAT
 from homeassistant.const import (
     ATTR_ENTITY_ID, SERVICE_TOGGLE, SERVICE_TURN_OFF, SERVICE_TURN_ON,
     STATE_ON)
@@ -21,6 +22,7 @@ import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.config_validation import PLATFORM_SCHEMA  # noqa
 from homeassistant.helpers.entity import ToggleEntity
 from homeassistant.helpers.entity_component import EntityComponent
+from homeassistant.helpers import intent
 from homeassistant.loader import bind_hass
 import homeassistant.util.color as color_util
 
@@ -29,7 +31,7 @@ DEPENDENCIES = ['group']
 SCAN_INTERVAL = timedelta(seconds=30)
 
 GROUP_NAME_ALL_LIGHTS = 'all lights'
-ENTITY_ID_ALL_LIGHTS = group.ENTITY_ID_FORMAT.format('all_lights')
+ENTITY_ID_ALL_LIGHTS = GROUP_ENTITY_ID_FORMAT.format('all_lights')
 
 ENTITY_ID_FORMAT = DOMAIN + '.{}'
 
@@ -135,6 +137,8 @@ PROFILE_SCHEMA = vol.Schema(
     vol.ExactSequence((str, cv.small_float, cv.small_float, cv.byte))
 )
 
+INTENT_SET = 'HassLightSet'
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -206,8 +210,9 @@ def async_turn_off(hass, entity_id=None, transition=None):
         DOMAIN, SERVICE_TURN_OFF, data))
 
 
+@callback
 @bind_hass
-def toggle(hass, entity_id=None, transition=None):
+def async_toggle(hass, entity_id=None, transition=None):
     """Toggle all or specified light."""
     data = {
         key: value for key, value in [
@@ -216,7 +221,14 @@ def toggle(hass, entity_id=None, transition=None):
         ] if value is not None
     }
 
-    hass.services.call(DOMAIN, SERVICE_TOGGLE, data)
+    hass.async_add_job(hass.services.async_call(
+        DOMAIN, SERVICE_TOGGLE, data))
+
+
+@bind_hass
+def toggle(hass, entity_id=None, transition=None):
+    """Toggle all or specified light."""
+    hass.add_job(async_toggle, hass, entity_id, transition)
 
 
 def preprocess_turn_on_alternatives(params):
@@ -228,7 +240,12 @@ def preprocess_turn_on_alternatives(params):
 
     color_name = params.pop(ATTR_COLOR_NAME, None)
     if color_name is not None:
-        params[ATTR_RGB_COLOR] = color_util.color_name_to_rgb(color_name)
+        try:
+            params[ATTR_RGB_COLOR] = color_util.color_name_to_rgb(color_name)
+        except ValueError:
+            _LOGGER.warning('Got unknown color %s, falling back to white',
+                            color_name)
+            params[ATTR_RGB_COLOR] = (255, 255, 255)
 
     kelvin = params.pop(ATTR_KELVIN, None)
     if kelvin is not None:
@@ -238,6 +255,67 @@ def preprocess_turn_on_alternatives(params):
     brightness_pct = params.pop(ATTR_BRIGHTNESS_PCT, None)
     if brightness_pct is not None:
         params[ATTR_BRIGHTNESS] = int(255 * brightness_pct/100)
+
+
+class SetIntentHandler(intent.IntentHandler):
+    """Handle set color intents."""
+
+    intent_type = INTENT_SET
+    slot_schema = {
+        vol.Required('name'): cv.string,
+        vol.Optional('color'): color_util.color_name_to_rgb,
+        vol.Optional('brightness'): vol.All(vol.Coerce(int), vol.Range(0, 100))
+    }
+
+    async def async_handle(self, intent_obj):
+        """Handle the hass intent."""
+        hass = intent_obj.hass
+        slots = self.async_validate_slots(intent_obj.slots)
+        state = hass.helpers.intent.async_match_state(
+            slots['name']['value'],
+            [state for state in hass.states.async_all()
+             if state.domain == DOMAIN])
+
+        service_data = {
+            ATTR_ENTITY_ID: state.entity_id,
+        }
+        speech_parts = []
+
+        if 'color' in slots:
+            intent.async_test_feature(
+                state, SUPPORT_RGB_COLOR, 'changing colors')
+            service_data[ATTR_RGB_COLOR] = slots['color']['value']
+            # Use original passed in value of the color because we don't have
+            # human readable names for that internally.
+            speech_parts.append('the color {}'.format(
+                intent_obj.slots['color']['value']))
+
+        if 'brightness' in slots:
+            intent.async_test_feature(
+                state, SUPPORT_BRIGHTNESS, 'changing brightness')
+            service_data[ATTR_BRIGHTNESS_PCT] = slots['brightness']['value']
+            speech_parts.append('{}% brightness'.format(
+                slots['brightness']['value']))
+
+        await hass.services.async_call(DOMAIN, SERVICE_TURN_ON, service_data)
+
+        response = intent_obj.create_response()
+
+        if not speech_parts:  # No attributes changed
+            speech = 'Turned on {}'.format(state.name)
+        else:
+            parts = ['Changed {} to'.format(state.name)]
+            for index, part in enumerate(speech_parts):
+                if index == 0:
+                    parts.append(' {}'.format(part))
+                elif index != len(speech_parts) - 1:
+                    parts.append(', {}'.format(part))
+                else:
+                    parts.append(' and {}'.format(part))
+            speech = ''.join(parts)
+
+        response.async_set_speech(speech)
+        return response
 
 
 async def async_setup(hass, config):
@@ -290,6 +368,8 @@ async def async_setup(hass, config):
     hass.services.async_register(
         DOMAIN, SERVICE_TOGGLE, async_handle_light_service,
         schema=LIGHT_TOGGLE_SCHEMA)
+
+    hass.helpers.intent.async_register(SetIntentHandler())
 
     return True
 

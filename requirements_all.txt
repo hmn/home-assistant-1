@@ -39,7 +39,7 @@ PyMVGLive==1.1.4
 PyMata==2.14
 
 # homeassistant.components.xiaomi_aqara
-PyXiaomiGateway==0.8.2
+PyXiaomiGateway==0.8.3
 
 # homeassistant.components.rpi_gpio
 # RPi.GPIO==0.6.1
@@ -133,10 +133,10 @@ batinfo==0.4.2
 beautifulsoup4==4.6.0
 
 # homeassistant.components.zha
-bellows==0.5.0
+bellows==0.5.1
 
 # homeassistant.components.bmw_connected_drive
-bimmer_connected==0.3.0
+bimmer_connected==0.4.1
 
 # homeassistant.components.blink
 blinkpy==0.6.0
@@ -165,10 +165,6 @@ boto3==1.4.7
 # homeassistant.scripts.credstash
 botocore==1.7.34
 
-# homeassistant.components.sensor.broadlink
-# homeassistant.components.switch.broadlink
-broadlink==0.5
-
 # homeassistant.components.sensor.buienradar
 # homeassistant.components.weather.buienradar
 buienradar==0.91
@@ -178,9 +174,6 @@ caldav==0.5.0
 
 # homeassistant.components.notify.ciscospark
 ciscosparkapi==0.4.2
-
-# homeassistant.components.coinbase
-coinbase==2.0.7
 
 # homeassistant.components.sensor.coinmarketcap
 coinmarketcap==4.2.1
@@ -219,7 +212,7 @@ defusedxml==0.5.0
 deluge-client==1.0.5
 
 # homeassistant.components.media_player.denonavr
-denonavr==0.6.0
+denonavr==0.6.1
 
 # homeassistant.components.media_player.directv
 directpy==0.2
@@ -275,7 +268,7 @@ evohomeclient==0.2.5
 fastdotcom==0.0.3
 
 # homeassistant.components.sensor.fedex
-fedexdeliverymanager==1.0.5
+fedexdeliverymanager==1.0.6
 
 # homeassistant.components.feedreader
 # homeassistant.components.sensor.geo_rss_events
@@ -356,7 +349,7 @@ hipnotify==1.0.8
 holidays==0.9.3
 
 # homeassistant.components.frontend
-home-assistant-frontend==20180227.0
+home-assistant-frontend==20180228.1
 
 # homeassistant.components.camera.onvif
 http://github.com/tgaugry/suds-passworddigest-py3/archive/86fc50e39b4d2b8997481967d6a7fe1c57118999.zip#suds-passworddigest-py3==0.1.2a
@@ -369,6 +362,13 @@ httplib2==0.10.3
 
 # homeassistant.components.media_player.braviatv
 https://github.com/aparraga/braviarc/archive/0.3.7.zip#braviarc==0.3.7
+
+# homeassistant.components.coinbase
+https://github.com/balloob/coinbase-python/archive/3a35efe13ef728a1cc18204b4f25be1fcb1c6006.zip#coinbase==2.0.8a1
+
+# homeassistant.components.sensor.broadlink
+# homeassistant.components.switch.broadlink
+https://github.com/balloob/python-broadlink/archive/3580ff2eaccd267846f14246d6ede6e30671f7c6.zip#broadlink==0.5.1
 
 # homeassistant.components.media_player.spotify
 https://github.com/happyleavesaoc/spotipy/archive/544614f4b1d508201d363e84e871f86c90aa26b2.zip#spotipy==2.4.4
@@ -403,10 +403,10 @@ https://github.com/wokar/pylgnetcast/archive/v0.2.0.zip#pylgnetcast==0.2.0
 # i2csense==0.0.4
 
 # homeassistant.components.light.iglo
-iglo==1.2.5
+iglo==1.2.6
 
 # homeassistant.components.ihc
-ihcsdk==2.1.1
+ihcsdk==2.2.0
 
 # homeassistant.components.influxdb
 # homeassistant.components.sensor.influxdb
@@ -647,7 +647,7 @@ pyHS100==0.3.0
 pyRFXtrx==0.21.1
 
 # homeassistant.components.sensor.tibber
-pyTibber==0.2.1
+pyTibber==0.3.2
 
 # homeassistant.components.switch.dlink
 pyW215==0.6.0
@@ -739,7 +739,7 @@ pyfttt==0.3
 pyharmony==1.0.20
 
 # homeassistant.components.binary_sensor.hikvision
-pyhik==0.1.4
+pyhik==0.1.8
 
 # homeassistant.components.hive
 pyhiveapi==0.2.11
@@ -785,7 +785,7 @@ pylgtv==0.1.7
 pylitejet==0.1
 
 # homeassistant.components.sensor.loopenergy
-pyloopenergy==0.0.17
+pyloopenergy==0.0.18
 
 # homeassistant.components.lutron_caseta
 pylutron-caseta==0.3.0
@@ -961,6 +961,9 @@ python-roku==3.1.5
 # homeassistant.components.sensor.sochain
 python-sochain-api==0.0.2
 
+# homeassistant.components.media_player.songpal
+python-songpal==0.0.6
+
 # homeassistant.components.sensor.synologydsm
 python-synology==0.1.0
 
@@ -988,8 +991,9 @@ python_opendata_transport==0.0.3
 # homeassistant.components.zwave
 python_openzwave==0.4.3
 
+# homeassistant.components.egardia
 # homeassistant.components.alarm_control_panel.egardia
-pythonegardia==1.0.26
+pythonegardia==1.0.38
 
 # homeassistant.components.sensor.whois
 pythonwhois==2.4.3
@@ -1079,7 +1083,7 @@ russound_rio==0.1.4
 rxv==0.5.1
 
 # homeassistant.components.media_player.samsungtv
-samsungctl==0.6.0
+samsungctl[websocket]==0.7.1
 
 # homeassistant.components.satel_integra
 satel_integra==0.1.0
@@ -1096,6 +1100,9 @@ sendgrid==5.3.0
 # homeassistant.components.light.sensehat
 # homeassistant.components.sensor.sensehat
 sense-hat==2.2.0
+
+# homeassistant.components.sensor.sense
+sense_energy==0.3.1
 
 # homeassistant.components.media_player.aquostv
 sharp_aquos_rc==0.3.2
@@ -1207,11 +1214,11 @@ twilio==5.7.0
 # homeassistant.components.sensor.uber
 uber_rides==0.6.0
 
+# homeassistant.components.upcloud
+upcloud-api==0.4.2
+
 # homeassistant.components.sensor.ups
 upsmychoice==1.0.6
-
-# homeassistant.components.frontend
-user-agents==1.1.0
 
 # homeassistant.components.camera.uvc
 uvcclient==0.10.1
@@ -1270,6 +1277,7 @@ xknx==0.8.3
 # homeassistant.components.sensor.swiss_hydrological_data
 # homeassistant.components.sensor.ted5000
 # homeassistant.components.sensor.yr
+# homeassistant.components.sensor.zestimate
 xmltodict==0.11.0
 
 # homeassistant.components.sensor.yahoo_finance
@@ -1301,4 +1309,4 @@ ziggo-mediabox-xl==1.0.0
 zigpy-xbee==0.0.2
 
 # homeassistant.components.zha
-zigpy==0.0.1
+zigpy==0.0.3
