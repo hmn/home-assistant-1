@@ -35,14 +35,7 @@ def async_get_clientsession(hass, verify_ssl=True):
         key = DATA_CLIENTSESSION_NOTVERIFY
 
     if key not in hass.data:
-        connector = _async_get_connector(hass, verify_ssl)
-        clientsession = aiohttp.ClientSession(
-            loop=hass.loop,
-            connector=connector,
-            headers={USER_AGENT: SERVER_SOFTWARE}
-        )
-        _async_register_clientsession_shutdown(hass, clientsession)
-        hass.data[key] = clientsession
+        hass.data[key] = async_create_clientsession(hass, verify_ssl)
 
     return hass.data[key]
 
@@ -123,7 +116,7 @@ async def async_aiohttp_proxy_stream(hass, request, stream, content_type,
                 await response.write_eof()
                 break
 
-            response.write(data)
+            await response.write(data)
 
     except (asyncio.TimeoutError, aiohttp.ClientError):
         # Something went wrong fetching data, close connection gracefully
