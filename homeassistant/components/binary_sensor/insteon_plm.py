@@ -17,13 +17,15 @@ _LOGGER = logging.getLogger(__name__)
 SENSOR_TYPES = {'openClosedSensor': 'opening',
                 'motionSensor': 'motion',
                 'doorSensor': 'door',
-                'wetLeakSensor': 'moisture'}
+                'wetLeakSensor': 'moisture',
+                'lightSensor': 'light',
+                'batterySensor': 'battery'}
 
 
 @asyncio.coroutine
 def async_setup_platform(hass, config, async_add_devices, discovery_info=None):
     """Set up the INSTEON PLM device class for the hass platform."""
-    plm = hass.data['insteon_plm']
+    plm = hass.data['insteon_plm'].get('plm')
 
     address = discovery_info['address']
     device = plm.devices[address]
@@ -54,4 +56,9 @@ class InsteonPLMBinarySensor(InsteonPLMEntity, BinarySensorDevice):
     @property
     def is_on(self):
         """Return the boolean response if the node is on."""
-        return bool(self._insteon_device_state.value)
+        on_val = bool(self._insteon_device_state.value)
+
+        if self._insteon_device_state.name == 'lightSensor':
+            return not on_val
+
+        return on_val

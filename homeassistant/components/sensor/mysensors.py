@@ -26,7 +26,7 @@ SENSORS = {
     'V_PERCENTAGE': ['%', 'mdi:percent'],
     'V_LEVEL': {
         'S_SOUND': ['dB', 'mdi:volume-high'], 'S_VIBRATION': ['Hz', None],
-        'S_LIGHT_LEVEL': ['lux', 'white-balance-sunny']},
+        'S_LIGHT_LEVEL': ['lx', 'white-balance-sunny']},
     'V_ORP': ['mV', None],
     'V_EC': ['μS/cm', None],
     'V_VAR': ['var', None],
@@ -42,7 +42,7 @@ async def async_setup_platform(
         async_add_devices=async_add_devices)
 
 
-class MySensorsSensor(mysensors.MySensorsEntity):
+class MySensorsSensor(mysensors.device.MySensorsEntity):
     """Representation of a MySensors Sensor child node."""
 
     @property

@@ -17,14 +17,15 @@ import homeassistant.helpers.config_validation as cv
 
 _LOGGER = logging.getLogger(__name__)
 
-REQUIREMENTS = ['holidays==0.9.4']
+REQUIREMENTS = ['holidays==0.9.6']
 
 # List of all countries currently supported by holidays
 # There seems to be no way to get the list out at runtime
-ALL_COUNTRIES = ['Australia', 'AU', 'Austria', 'AT', 'Belgium', 'BE', 'Canada',
-                 'CA', 'Colombia', 'CO', 'Czech', 'CZ', 'Denmark', 'DK',
-                 'England', 'EuropeanCentralBank', 'ECB', 'TAR', 'Finland',
-                 'FI', 'France', 'FRA', 'Germany', 'DE', 'Ireland',
+ALL_COUNTRIES = ['Argentina', 'AR', 'Australia', 'AU', 'Austria', 'AT',
+                 'Belgium', 'BE', 'Canada', 'CA', 'Colombia', 'CO', 'Czech',
+                 'CZ', 'Denmark', 'DK', 'England', 'EuropeanCentralBank',
+                 'ECB', 'TAR', 'Finland', 'FI', 'France', 'FRA', 'Germany',
+                 'DE', 'Hungary', 'HU', 'India', 'IND', 'Ireland',
                  'Isle of Man', 'Italy', 'IT', 'Japan', 'JP', 'Mexico', 'MX',
                  'Netherlands', 'NL', 'NewZealand', 'NZ', 'Northern Ireland',
                  'Norway', 'NO', 'Polish', 'PL', 'Portugal', 'PT',
@@ -134,7 +135,7 @@ class IsWorkdaySensor(BinarySensorDevice):
         """Check if given day is in the includes list."""
         if day in self._workdays:
             return True
-        elif 'holiday' in self._workdays and now in self._obj_holidays:
+        if 'holiday' in self._workdays and now in self._obj_holidays:
             return True
 
         return False
@@ -143,7 +144,7 @@ class IsWorkdaySensor(BinarySensorDevice):
         """Check if given day is in the excludes list."""
         if day in self._excludes:
             return True
-        elif 'holiday' in self._excludes and now in self._obj_holidays:
+        if 'holiday' in self._excludes and now in self._obj_holidays:
             return True
 
         return False

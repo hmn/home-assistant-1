@@ -19,10 +19,10 @@ import weakref
 
 import attr
 
-from ..core import callback, split_entity_id
-from ..loader import bind_hass
-from ..util import ensure_unique_string, slugify
-from ..util.yaml import load_yaml, save_yaml
+from homeassistant.core import callback, split_entity_id, valid_entity_id
+from homeassistant.loader import bind_hass
+from homeassistant.util import ensure_unique_string, slugify
+from homeassistant.util.yaml import load_yaml, save_yaml
 
 PATH_REGISTRY = 'entity_registry.yaml'
 DATA_REGISTRY = 'entity_registry'
@@ -37,12 +37,11 @@ DISABLED_USER = 'user'
 class RegistryEntry:
     """Entity Registry Entry."""
 
-    # pylint: disable=no-member
-
     entity_id = attr.ib(type=str)
     unique_id = attr.ib(type=str)
     platform = attr.ib(type=str)
     name = attr.ib(type=str, default=None)
+    config_entry_id = attr.ib(type=str, default=None)
     disabled_by = attr.ib(
         type=str, default=None,
         validator=attr.validators.in_((DISABLED_HASS, DISABLED_USER, None)))
@@ -64,8 +63,13 @@ class RegistryEntry:
         """Listen for when entry is updated.
 
         Listener: Callback function(old_entry, new_entry)
+
+        Returns function to unlisten.
         """
-        self.update_listeners.append(weakref.ref(listener))
+        weak_listener = weakref.ref(listener)
+        self.update_listeners.append(weak_listener)
+
+        return lambda: self.update_listeners.remove(weak_listener)
 
 
 class EntityRegistry:
@@ -84,6 +88,15 @@ class EntityRegistry:
         return entity_id in self.entities
 
     @callback
+    def async_get_entity_id(self, domain: str, platform: str, unique_id: str):
+        """Check if an entity_id is currently registered."""
+        for entity in self.entities.values():
+            if entity.domain == domain and entity.platform == platform and \
+               entity.unique_id == unique_id:
+                return entity.entity_id
+        return None
+
+    @callback
     def async_generate_entity_id(self, domain, suggested_object_id):
         """Generate an entity ID that does not conflict.
 
@@ -97,17 +110,24 @@ class EntityRegistry:
 
     @callback
     def async_get_or_create(self, domain, platform, unique_id, *,
-                            suggested_object_id=None):
+                            suggested_object_id=None, config_entry_id=None):
         """Get entity. Create if it doesn't exist."""
-        for entity in self.entities.values():
-            if entity.domain == domain and entity.platform == platform and \
-               entity.unique_id == unique_id:
-                return entity
+        entity_id = self.async_get_entity_id(domain, platform, unique_id)
+        if entity_id:
+            entry = self.entities[entity_id]
+            if entry.config_entry_id == config_entry_id:
+                return entry
+
+            self._async_update_entity(
+                entity_id, config_entry_id=config_entry_id)
+            return self.entities[entity_id]
 
         entity_id = self.async_generate_entity_id(
             domain, suggested_object_id or '{}_{}'.format(platform, unique_id))
+
         entity = RegistryEntry(
             entity_id=entity_id,
+            config_entry_id=config_entry_id,
             unique_id=unique_id,
             platform=platform,
         )
@@ -118,14 +138,43 @@ class EntityRegistry:
         return entity
 
     @callback
-    def async_update_entity(self, entity_id, *, name=_UNDEF):
+    def async_update_entity(self, entity_id, *, name=_UNDEF,
+                            new_entity_id=_UNDEF):
         """Update properties of an entity."""
+        return self._async_update_entity(
+            entity_id,
+            name=name,
+            new_entity_id=new_entity_id
+        )
+
+    @callback
+    def _async_update_entity(self, entity_id, *, name=_UNDEF,
+                             config_entry_id=_UNDEF, new_entity_id=_UNDEF):
+        """Private facing update properties method."""
         old = self.entities[entity_id]
 
         changes = {}
 
         if name is not _UNDEF and name != old.name:
             changes['name'] = name
+
+        if (config_entry_id is not _UNDEF and
+                config_entry_id != old.config_entry_id):
+            changes['config_entry_id'] = config_entry_id
+
+        if new_entity_id is not _UNDEF and new_entity_id != old.entity_id:
+            if self.async_is_registered(new_entity_id):
+                raise ValueError('Entity is already registered')
+
+            if not valid_entity_id(new_entity_id):
+                raise ValueError('Invalid entity ID')
+
+            if (split_entity_id(new_entity_id)[0] !=
+                    split_entity_id(entity_id)[0]):
+                raise ValueError('New entity ID should be same domain')
+
+            self.entities.pop(entity_id)
+            entity_id = changes['entity_id'] = new_entity_id
 
         if not changes:
             return old
@@ -171,6 +220,7 @@ class EntityRegistry:
             for entity_id, info in data.items():
                 entities[entity_id] = RegistryEntry(
                     entity_id=entity_id,
+                    config_entry_id=info.get('config_entry_id'),
                     unique_id=info['unique_id'],
                     platform=info['platform'],
                     name=info.get('name'),
@@ -197,6 +247,7 @@ class EntityRegistry:
 
         for entry in self.entities.values():
             data[entry.entity_id] = {
+                'config_entry_id': entry.config_entry_id,
                 'unique_id': entry.unique_id,
                 'platform': entry.platform,
                 'name': entry.name,

@@ -12,12 +12,12 @@ import voluptuous as vol
 from homeassistant.components.sensor import PLATFORM_SCHEMA
 from homeassistant.helpers.entity import Entity
 from homeassistant.const import (
-    CONF_HOST, CONF_USERNAME, CONF_PASSWORD, CONF_PORT, CONF_SSL,
+    CONF_HOST, CONF_USERNAME, CONF_PASSWORD, CONF_PORT, CONF_SSL, ATTR_NAME,
     CONF_VERIFY_SSL, CONF_TIMEOUT, CONF_MONITORED_CONDITIONS, TEMP_CELSIUS)
 from homeassistant.util import Throttle
 import homeassistant.helpers.config_validation as cv
 
-REQUIREMENTS = ['qnapstats==0.2.5']
+REQUIREMENTS = ['qnapstats==0.2.6']
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -29,7 +29,6 @@ ATTR_MASK = 'Mask'
 ATTR_MAX_SPEED = 'Max Speed'
 ATTR_MEMORY_SIZE = 'Memory Size'
 ATTR_MODEL = 'Model'
-ATTR_NAME = 'Name'
 ATTR_PACKETS_TX = 'Packets (TX)'
 ATTR_PACKETS_RX = 'Packets (RX)'
 ATTR_PACKETS_ERR = 'Packets (Err)'
@@ -103,7 +102,6 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
 })
 
 
-# pylint: disable=unused-argument
 def setup_platform(hass, config, add_devices, discovery_info=None):
     """Set up the QNAP NAS sensor."""
     api = QNAPStatsAPI(config)
@@ -166,7 +164,7 @@ def round_nicely(number):
     return round(number)
 
 
-class QNAPStatsAPI(object):
+class QNAPStatsAPI:
     """Class to interface with the API."""
 
     def __init__(self, config):
@@ -194,7 +192,7 @@ class QNAPStatsAPI(object):
             self.data["smart_drive_health"] = self._api.get_smart_disk_health()
             self.data["volumes"] = self._api.get_volumes()
             self.data["bandwidth"] = self._api.get_bandwidth()
-        except:  # noqa: E722  # pylint: disable=bare-except
+        except:  # noqa: E722 pylint: disable=bare-except
             _LOGGER.exception("Failed to fetch QNAP stats from the NAS")
 
 
@@ -243,7 +241,7 @@ class QNAPCPUSensor(QNAPSensor):
         """Return the state of the sensor."""
         if self.var_id == 'cpu_temp':
             return self._api.data['system_stats']['cpu']['temp_c']
-        elif self.var_id == 'cpu_usage':
+        if self.var_id == 'cpu_usage':
             return self._api.data['system_stats']['cpu']['usage_percent']
 
 
@@ -352,7 +350,7 @@ class QNAPDriveSensor(QNAPSensor):
             return data['health']
 
         if self.var_id == 'drive_temp':
-            return int(data['temp_c'])
+            return int(data['temp_c']) if data['temp_c'] is not None else 0
 
     @property
     def name(self):

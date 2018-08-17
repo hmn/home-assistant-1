@@ -131,9 +131,12 @@ class YahooWeatherSensor(Entity):
     @property
     def device_state_attributes(self):
         """Return the state attributes."""
-        return {
-            ATTR_ATTRIBUTION: CONF_ATTRIBUTION,
-        }
+        attrs = {ATTR_ATTRIBUTION: CONF_ATTRIBUTION}
+
+        if self._code is not None and "weather" in self._type:
+            attrs['condition_code'] = self._code
+
+        return attrs
 
     def update(self):
         """Get the latest data from Yahoo! and updates the states."""
@@ -171,7 +174,7 @@ class YahooWeatherSensor(Entity):
                 float(self._data.yahoo.Atmosphere['visibility'])/1.61, 2)
 
 
-class YahooWeatherData(object):
+class YahooWeatherData:
     """Handle Yahoo! API object and limit updates."""
 
     def __init__(self, woeid, temp_unit):

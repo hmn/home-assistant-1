@@ -97,7 +97,6 @@ class StatisticsSensor(Entity):
             hass.async_add_job(self._initialize_from_database)
 
         @callback
-        # pylint: disable=invalid-name
         def async_stats_sensor_state_listener(entity, old_state, new_state):
             """Handle the sensor state changes."""
             self._unit_of_measurement = new_state.attributes.get(
@@ -156,7 +155,7 @@ class StatisticsSensor(Entity):
                 ATTR_CHANGE: self.change,
                 ATTR_AVERAGE_CHANGE: self.average_change,
             }
-            # Only return min/max age if we have a age span
+            # Only return min/max age if we have an age span
             if self._max_age:
                 state.update({
                     ATTR_MAX_AGE: self.max_age,

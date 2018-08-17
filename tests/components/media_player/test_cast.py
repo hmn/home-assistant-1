@@ -17,6 +17,8 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect, \
 from homeassistant.components.media_player import cast
 from homeassistant.setup import async_setup_component
 
+from tests.common import MockConfigEntry, mock_coro
+
 
 @pytest.fixture(autouse=True)
 def cast_mock():
@@ -346,8 +348,69 @@ async def test_switched_host(hass: HomeAssistantType):
         async_dispatcher_send(hass, cast.SIGNAL_CAST_DISCOVERED, changed)
         await hass.async_block_till_done()
         assert get_chromecast.call_count == 1
-        chromecast.disconnect.assert_called_once_with(blocking=False)
+        assert chromecast.disconnect.call_count == 1
 
-        hass.bus.async_fire(EVENT_HOMEASSISTANT_STOP)
-        await hass.async_block_till_done()
-        chromecast.disconnect.assert_called_once_with(blocking=False)
+
+async def test_disconnect_on_stop(hass: HomeAssistantType):
+    """Test cast device disconnects socket on stop."""
+    info = get_fake_chromecast_info()
+
+    with patch('pychromecast.dial.get_device_status', return_value=info):
+        chromecast, _ = await async_setup_media_player_cast(hass, info)
+
+    hass.bus.async_fire(EVENT_HOMEASSISTANT_STOP)
+    await hass.async_block_till_done()
+    assert chromecast.disconnect.call_count == 1
+
+
+async def test_entry_setup_no_config(hass: HomeAssistantType):
+    """Test setting up entry with no config.."""
+    await async_setup_component(hass, 'cast', {})
+
+    with patch(
+        'homeassistant.components.media_player.cast._async_setup_platform',
+            return_value=mock_coro()) as mock_setup:
+        await cast.async_setup_entry(hass, MockConfigEntry(), None)
+
+    assert len(mock_setup.mock_calls) == 1
+    assert mock_setup.mock_calls[0][1][1] == {}
+
+
+async def test_entry_setup_single_config(hass: HomeAssistantType):
+    """Test setting up entry and having a single config option."""
+    await async_setup_component(hass, 'cast', {
+        'cast': {
+            'media_player': {
+                'host': 'bla'
+            }
+        }
+    })
+
+    with patch(
+        'homeassistant.components.media_player.cast._async_setup_platform',
+            return_value=mock_coro()) as mock_setup:
+        await cast.async_setup_entry(hass, MockConfigEntry(), None)
+
+    assert len(mock_setup.mock_calls) == 1
+    assert mock_setup.mock_calls[0][1][1] == {'host': 'bla'}
+
+
+async def test_entry_setup_list_config(hass: HomeAssistantType):
+    """Test setting up entry and having multiple config options."""
+    await async_setup_component(hass, 'cast', {
+        'cast': {
+            'media_player': [
+                {'host': 'bla'},
+                {'host': 'blu'},
+            ]
+        }
+    })
+
+    with patch(
+        'homeassistant.components.media_player.cast._async_setup_platform',
+            return_value=mock_coro()) as mock_setup:
+        await cast.async_setup_entry(hass, MockConfigEntry(), None)
+
+    assert len(mock_setup.mock_calls) == 2
+    assert mock_setup.mock_calls[0][1][1] == {'host': 'bla'}
+    assert mock_setup.mock_calls[1][1][1] == {'host': 'blu'}

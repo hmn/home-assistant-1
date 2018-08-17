@@ -15,14 +15,13 @@ from homeassistant.const import (
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entity import Entity
 
-REQUIREMENTS = ['alpha_vantage==1.9.0']
+REQUIREMENTS = ['alpha_vantage==2.0.0']
 
 _LOGGER = logging.getLogger(__name__)
 
 ATTR_CLOSE = 'close'
 ATTR_HIGH = 'high'
 ATTR_LOW = 'low'
-ATTR_VOLUME = 'volume'
 
 CONF_ATTRIBUTION = "Stock market information provided by Alpha Vantage"
 CONF_FOREIGN_EXCHANGE = 'foreign_exchange'
@@ -148,7 +147,6 @@ class AlphaVantageSensor(Entity):
                 ATTR_CLOSE: self.values['4. close'],
                 ATTR_HIGH: self.values['2. high'],
                 ATTR_LOW: self.values['3. low'],
-                ATTR_VOLUME: self.values['5. volume'],
             }
 
     @property

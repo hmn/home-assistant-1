@@ -21,7 +21,7 @@ from homeassistant.helpers.entity import Entity
 from homeassistant.util import Throttle
 import homeassistant.helpers.config_validation as cv
 
-REQUIREMENTS = ['pyhydroquebec==2.2.1']
+REQUIREMENTS = ['pyhydroquebec==2.2.2']
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -162,7 +162,7 @@ class HydroQuebecSensor(Entity):
             self._state = round(self.hydroquebec_data.data[self.type], 2)
 
 
-class HydroquebecData(object):
+class HydroquebecData:
     """Get data from HydroQuebec."""
 
     def __init__(self, username, password, httpsession, contract=None):

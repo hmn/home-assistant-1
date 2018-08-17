@@ -21,7 +21,7 @@ from homeassistant.helpers.entity import Entity
 from homeassistant.util import Throttle
 import homeassistant.helpers.config_validation as cv
 
-REQUIREMENTS = ['pyfido==2.1.0']
+REQUIREMENTS = ['pyfido==2.1.1']
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -147,7 +147,7 @@ class FidoSensor(Entity):
                 self._state = round(self._state, 2)
 
 
-class FidoData(object):
+class FidoData:
     """Get data from Fido."""
 
     def __init__(self, username, password, httpsession):
